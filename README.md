@@ -6,6 +6,10 @@ If [ you are looking for such a common requirement as a base Container ] and
    Then [ this one may be for you ]
 ```
 
+# Requirements:
+* Gradle: v7.3.3
+* Java: v11
+
 # Components:
 * [HyperGraphQL](https://github.com/DrSnowbird/HyperGraphQL)
   * [HyberGraphQL upstream (hypergraphql/hyergraphql)](https://github.com/hypergraphql/hypergraphql)
