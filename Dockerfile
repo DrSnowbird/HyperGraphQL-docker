@@ -32,26 +32,22 @@ WORKDIR ${APP_HOME}
 USER ${USER}
 
 #####################################
-##### ---- UltraGraphQL:   ---- #####
+##### ---- HyperGraphQL:   ---- #####
 #####################################
-# ref: 
-# - paper:   http://ceur-ws.org/Vol-2722/quweda2020-paper-2.pdf
-# - gitlab:  https://git.rwth-aachen.de/i5/ultragraphql
-# - jar-exe: https://git.rwth-aachen.de/i5/ultragraphql/-/jobs/1662119/artifacts/browse/build/libs
-
-#### ---- (download both UGQL & HGQL jar files to support run-demo.sh) ---- ####
+# ref: http://hypergraphql.org/
+#### ---- (download HGQL GIT) ---- ####
 #ARG HGQL_GIT=https://github.com/hypergraphql/hypergraphql.git
 ARG HGQL_GIT=https://github.com/DrSnowbird/HyperGraphQL.git
 RUN git clone ${HGQL_GIT} && cd $(basename ${HGQL_GIT%%.git}) && \
     gradle clean build shadowJar && ls -al $(find ./build -name "*.jar")
     
+#### ---- (download HGQL jar files to support run-demo.sh) ---- ####
 #ARG HGQL_VERSION_LATEST=3.0.1
 #ARG HGQL_JAR=https://github.com/hypergraphql/hypergraphql/releases/download/${HGQL_VERSION_LATEST}/hypergraphql-${HGQL_VERSION_LATEST}-exe.jar
 #RUN wget -q --no-check-certificate ${HGQL_JAR}
 
-
 #### ---- (Script for Evaluation demo): ---- ####
-COPY --chown=${USER}:${USER} run-demo.sh .
+COPY --chown=${USER}:${USER} run-demo.sh ${HOME}/bin/
 
 ######################
 #### (Test only) #####
