@@ -79,8 +79,8 @@ build-rm:
 
 build:
 	docker build \
-	-t $(DOCKER_IMAGE):$(VERSION) .
-		docker images | grep $(DOCKER_IMAGE)
+	    -t $(DOCKER_IMAGE):$(VERSION) .
+	docker images | grep $(DOCKER_IMAGE)
 	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
 
 push:
