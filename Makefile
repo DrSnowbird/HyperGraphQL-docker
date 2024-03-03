@@ -2,7 +2,7 @@
 # login first (Registry: e.g., hub.docker.io, registry.localhost:5000, etc.)
 # a.)  docker login
 # or
-# b.) sudo docker login -p FpXM6Qy9vVL5kPeoefzxwA-oaYb-Wpej2iXTwV7UHYs -e unused -u unused docker-registry-default.openkbs.org
+# b.) docker login -p FpXM6Qy9vVL5kPeoefzxwA-oaYb-Wpej2iXTwV7UHYs -e unused -u unused docker-registry-default.openkbs.org
 # e.g. (using Openshift)
 #    oc process -f ./files/deployments/template.yml -v API_NAME=$(REGISTRY_IMAGE) > template.active
 #
@@ -22,8 +22,9 @@ BASE_IMAGE := $(BASE_IMAGE)
 #  cat -e -t -v Makefile
 
 # The name of the container (default is current directory name)
-#DOCKER_NAME := $(shell echo $${PWD\#\#*/})
-DOCKER_NAME := $(shell echo $${PWD\#\#*/}|tr '[:upper:]' '[:lower:]'|tr "/: " "_" )
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
+DOCKER_NAME := $(shell echo $(current_dir)|tr '[:upper:]' '[:lower:]'|tr "/: " "_" )
 
 ORGANIZATION=$(shell echo $${ORGANIZATION:-openkbs})
 APP_VERSION=$(shell echo $${APP_VERSION:-latest})
@@ -47,6 +48,9 @@ DOCKER_IMAGE := $(ORGANIZATION)/$(DOCKER_NAME)
 #VOLUME_MAP := "-v $${PWD}/data:/home/developer/data -v $${PWD}/workspace:/home/developer/workspace"
 VOLUME_MAP := 
 
+## -- Network: -- ##
+DOCKER_NETWORK=$(shell echo $${DOCKER_NETWORK:-dev_network})
+
 # -- Local SAVE of image --
 IMAGE_EXPORT_PATH := "$${PWD}/archive"
 
@@ -59,8 +63,16 @@ TIME_START := $(shell date +%s)
 
 .PHONY: clean rmi build push pull up down run stop exec
 
-clean:
-	$(DOCKER_NAME) $(DOCKER_IMAGE):$(VERSION) 
+# -- Java base image versions to build: --
+# -- Only the last value will be designated as the ":latest" tag!
+# JAVA_VERSION_LIST=23-slim-bullseye  23-jdk-slim-bullseye
+JAVA_VERSION_LIST=23-slim-bullseye
+
+debug:
+	@echo "makefile_path="$(mkfile_path)
+	@echo "current_dir="$(current_dir)
+	@echo "DOCKER_NNAME="$(DOCKER_NAME) 
+	@echo "DOCKER_IMAGE:VERSION="$(DOCKER_IMAGE):$(VERSION) 
 
 default: build
 
@@ -76,17 +88,41 @@ build-time:
 build-rm:
 	docker build --force-rm --no-cache \
 		-t $(DOCKER_IMAGE):$(VERSION) .
-
-build:
-	docker build \
-	    -t $(DOCKER_IMAGE):$(VERSION) .
 	docker images | grep $(DOCKER_IMAGE)
 	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
+
+
+try:
+	echo "start" $(counter)
+	echo Hello world: $(counter) 
+	if [ $(counter) = 0 ]; then \
+		echo ... do some things to build ; \
+		echo docker build -t $(DOCKER_IMAGE) --build-arg JAVA_VERSION=$$ver .  ; \
+		counter=1 ;\
+	fi ; \
+	echo "end" $(counter)
+
+build:
+	for ver in $(JAVA_VERSION_LIST); do \
+		echo ... JAVA_VERSION: $$ver ; \
+		docker build -t $(DOCKER_IMAGE):$$ver --build-arg JAVA_VERSION=$$ver .  ; \
+		docker build -t $(DOCKER_IMAGE) --build-arg JAVA_VERSION=$$ver .  ; \
+	done
+	docker images | grep $(DOCKER_IMAGE)
+	echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
+    
+#build:
+#	for ver in $(JAVA_VERSION_LIST); do \
+#		echo ">>> JAVA_VERSION: $$ver"; \
+#		docker build -t $(DOCKER_IMAGE):$$ver --build-arg JAVA_VERSION=$$ver .  ; \
+#		docker build -t $(DOCKER_IMAGE) --build-arg JAVA_VERSION=$$ver .  ; \
+#	done
+#	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
+#
 
 push:
 	docker commit -m "$comment" ${containerID} ${imageTag}:$(VERSION)
 	docker push $(DOCKER_IMAGE):$(VERSION)
-
 	docker tag $(imageTag):$(VERSION) $(REGISTRY_IMAGE):$(VERSION)
 	#docker tag $(imageTag):latest $(REGISTRY_IMAGE):latest
 	docker push $(REGISTRY_IMAGE):$(VERSION)
@@ -103,30 +139,43 @@ pull:
 		docker pull $(REGISTRY_IMAGE):$(VERSION) ; \
 	fi
 
+network:
+	echo -e ">>> ==================== network: ======================"
+	docker network create --driver bridge ${DOCKER_NETWORK}
+	docker network ls
+
 ## -- deployment mode (daemon service): -- ##
 up:
 	bin/auto-config-all.sh
-	docker-compose up -d
+	#if [ "$(USER_ID)" != "" ] && [ "$(USER_ID)" != "" ]; then \
+	#	sudo chown -R $(USER_ID):$(GROUP_ID) data workspace ; \
+	#	docker-compose up --remove-orphans -u $(USER_ID):$(GROUP_ID) -d ; \
+	#else \
+	#	docker-compose up --remove-orphans -d ; \
+	#fi
+	docker-compose up --remove-orphans -d
 	docker ps | grep $(DOCKER_IMAGE)
 	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
 
 down:
+	./stop.sh
 	docker-compose down
-	docker ps | grep $(DOCKER_IMAGE)
+	#docker ps | grep $(DOCKER_IMAGE)
 	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
 
 down-rm:
 	docker-compose down -v --rmi all --remove-orphans
-	docker ps | grep $(DOCKER_IMAGE)
+	#docker ps | grep $(DOCKER_IMAGE)
 	@echo ">>> Total Dockder images Build using time in seconds: $$(($$(date +%s)-$(TIME_START))) seconds"
 
 ## -- dev/debug -- ##
 run:
-	bin/auto-config-all.sh
+	@if [ ! -s .env ]; then \
+		bin/auto-config-all.sh; \
+	fi
 	./run.sh
 	docker ps | grep $(DOCKER_IMAGE)
-	
-#docker run --name=$(DOCKER_NAME) --restart=$(RESTART_OPTION) $(VOLUME_MAP) $(DOCKER_IMAGE):$(VERSION)
+	#docker run --name=$(DOCKER_NAME) --restart=$(RESTART_OPTION) $(VOLUME_MAP) $(DOCKER_IMAGE):$(VERSION)
 
 stop:
 	docker stop --name=$(DOCKER_NAME)
