@@ -7,7 +7,7 @@ If [ you are looking for such a common requirement as a base Container ] and
 ```
 
 # Requirements:
-* Gradle: v7.3.3
+* Gradle: v7.6.4
 * Java: v11
 
 # Components:
@@ -32,9 +32,15 @@ If [ you are looking for such a common requirement as a base Container ] and
    * [HyperGraphQL-docker](https://github.com/DrSnowbird/HyperGraphQL-docker)
 
 # Build (do this first!)
-```
-./build.sh
-```
+* Note: it is necessary to use specific Java v11 to successfully build this Container.
+* Make sure you modify "openkbs/java-nonroot-docker" (git clone locally) Dockerfile to generate image tag "11" before you build this Container:
+    ```
+    JAVA_VERSION_LIST=11 23-slim-bullseye
+    ```
+* Then, you can proceed to build this Container with errors due to Java version incompatibility issues.
+    ```
+    ./build.sh
+    ```
 
 # Run (recommended for easy-start)
 ```
